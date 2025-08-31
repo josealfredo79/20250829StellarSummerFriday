@@ -9,7 +9,21 @@ export default function Home() {
   useEffect(() => {
     // Inicializar wallet desde localStorage después de que el componente se monte
     const init = async () => {
-      await initializeWallet();
+      // Esperar a que la página esté completamente cargada
+      if (document.readyState === 'loading') {
+        await new Promise(resolve => {
+          document.addEventListener('DOMContentLoaded', resolve);
+        });
+      }
+      
+      // Esperar un poco más para asegurar que las extensiones estén cargadas
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      try {
+        await initializeWallet();
+      } catch (error) {
+        console.log('Error initializing wallet:', error);
+      }
     };
     init();
   }, []);

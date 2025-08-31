@@ -1,15 +1,31 @@
-import { useState } from 'react';
-import { Wallet, LogOut, AlertCircle } from 'lucide-react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Wallet, ExternalLink, AlertCircle, LogOut, Loader2 } from 'lucide-react';
+import { isConnected } from '@stellar/freighter-api';
 import { useWalletStore } from '@/store';
 import { useNotifications } from '@/hooks';
 
-export const WalletConnector = () => {
-  const { isConnected, publicKey, connect, disconnect } = useWalletStore();
-  const { showError, showSuccess } = useNotifications();
-  const [isConnecting, setIsConnecting] = useState(false);
+export default function WalletConnector() {
+  const { isConnected: walletConnected, publicKey, connect, disconnect, isConnecting, error } = useWalletStore();
+  const { showSuccess, showError } = useNotifications();
+  const [freighterDetected, setFreighterDetected] = useState<boolean | null>(null);
+
+  // Detectar Freighter al cargar el componente
+  useEffect(() => {
+    const detectFreighter = async () => {
+      try {
+        const connectionCheck = await isConnected();
+        setFreighterDetected(!connectionCheck.error);
+      } catch (error) {
+        setFreighterDetected(false);
+      }
+    };
+    
+    detectFreighter();
+  }, []);
 
   const handleConnect = async () => {
-    setIsConnecting(true);
     try {
       await connect();
       showSuccess('¡Wallet conectada exitosamente!');
@@ -23,8 +39,6 @@ export const WalletConnector = () => {
           showError('Instala Freighter desde: https://freighter.app/ y luego recarga la página');
         }, 2000);
       }
-    } finally {
-      setIsConnecting(false);
     }
   };
 
@@ -37,7 +51,49 @@ export const WalletConnector = () => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
-  if (!isConnected) {
+  if (!walletConnected) {
+    // Mostrar estado de carga mientras detectamos Freighter
+    if (freighterDetected === null) {
+      return (
+        <div className="flex flex-col items-center gap-4 p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+          <div className="flex items-center gap-2 text-gray-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Detectando Freighter...</span>
+          </div>
+          <p className="text-sm text-gray-500 text-center max-w-md">
+            Verificando si tienes la extensión Freighter instalada...
+          </p>
+        </div>
+      );
+    }
+
+    // Mostrar mensaje si Freighter no está instalado
+    if (freighterDetected === false) {
+      return (
+        <div className="flex flex-col items-center gap-4 p-6 bg-red-50 rounded-lg border-2 border-red-200">
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="w-5 h-5" />
+            <span>Freighter no detectado</span>
+          </div>
+          
+          <a
+            href="https://freighter.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <ExternalLink className="w-5 h-5" />
+            Instalar Freighter
+          </a>
+          
+          <p className="text-sm text-red-600 text-center max-w-md">
+            Necesitas instalar la extensión Freighter para usar esta aplicación. Después de instalarla, recarga la página.
+          </p>
+        </div>
+      );
+    }
+
+    // Freighter detectado, mostrar botón de conexión
     return (
       <div className="flex flex-col items-center gap-4 p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
         <div className="flex items-center gap-2 text-gray-600">
@@ -53,6 +109,12 @@ export const WalletConnector = () => {
           <Wallet className="w-5 h-5" />
           {isConnecting ? 'Conectando...' : 'Conectar Freighter'}
         </button>
+        
+        {error && (
+          <p className="text-sm text-red-600 text-center max-w-md">
+            {error}
+          </p>
+        )}
         
         <p className="text-sm text-gray-500 text-center max-w-md">
           Necesitas conectar tu wallet Freighter para crear y gestionar registros en la blockchain de Stellar.
